@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐪 Carrera de Camellos</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#111;color:#fff;}
+.pantalla{display:none;flex-direction:column;align-items:center;justify-content:center;height:100dvh;padding:1.5rem;gap:1rem;text-align:center;}
+.pantalla.activa{display:flex;}
+h1{font-size:clamp(1.8rem,7vw,3.5rem);font-weight:900;}
+h2{font-size:clamp(1.1rem,4vw,1.6rem);font-weight:700;}
+.btn{border:none;padding:.8rem 1.8rem;font-size:1rem;border-radius:12px;cursor:pointer;font-weight:700;transition:transform .1s;user-select:none;}
+.btn:active{transform:scale(.96);}
+.btn-p{background:#d4890f;color:#fff;box-shadow:0 4px 0 #8a5a06;}
+.btn-s{background:transparent;color:#d4890f;border:2px solid #d4890f;}
+.btn-r{background:#c0392b;color:#fff;}
+.input{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);color:#fff;padding:.7rem 1rem;font-size:1.1rem;border-radius:10px;outline:none;}
+.input:focus{border-color:#d4890f;}
+.input-pin{width:160px;text-align:center;letter-spacing:.3em;font-size:1.5rem;font-weight:700;}
+.cod-grande{font-size:clamp(2.5rem,10vw,5rem);font-weight:900;color:#ffd700;letter-spacing:.3em;font-family:monospace;}
+.sub{color:rgba(255,255,255,.45);font-size:.85rem;max-width:320px;line-height:1.5;}
+.lista-j{display:flex;flex-direction:column;gap:.4rem;width:100%;max-width:340px;}
+.item-j{background:rgba(255,255,255,.07);border-radius:10px;padding:.55rem .9rem;display:flex;align-items:center;gap:.7rem;border-left:4px solid #555;}
+.spin{width:36px;height:36px;border:3px solid rgba(212,137,15,.25);border-top-color:#d4890f;border-radius:50%;animation:gir .9s linear infinite;}
+@keyframes gir{to{transform:rotate(360deg);}}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;width:100%;max-width:360px;}
+.cfg-item{background:rgba(255,255,255,.06);border-radius:10px;padding:.6rem .8rem;}
+.cfg-lbl{font-size:.7rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem;}
+.cfg-val{font-size:1.1rem;font-weight:700;color:#ffd700;}
+.cfg-row{display:flex;align-items:center;gap:.5rem;}
+.cfg-btn{background:rgba(255,255,255,.1);border:none;color:#fff;width:28px;height:28px;border-radius:6px;font-size:1rem;cursor:pointer;}
+.cfg-btn:hover{background:rgba(255,255,255,.2);}
+/* TABLERO */
+#tablero{display:none;flex-direction:column;height:100dvh;overflow:hidden;}
+#tablero.activa{display:flex;}
+.t-top{display:flex;align-items:center;justify-content:space-between;padding:.35rem .8rem;background:rgba(0,0,0,.55);flex-shrink:0;gap:.4rem;}
+.t-cod{font-size:1rem;font-weight:800;color:#ffd700;font-family:monospace;letter-spacing:.15em;}
+.t-lbl{font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;}
+.t-marc{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:center;flex:1;}
+.bdg{font-size:.65rem;padding:2px 7px;border-radius:20px;font-weight:700;background:rgba(255,255,255,.08);border-left:3px solid #555;white-space:nowrap;}
+.pistas{flex:1;position:relative;overflow:hidden;}
+.c-div{position:absolute;left:0;right:0;display:flex;align-items:center;}
+.c-lin{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,.1);top:50%;}
+.c-mov{position:absolute;display:flex;align-items:center;gap:4px;transition:left .35s cubic-bezier(.25,.8,.25,1);}
+.c-nom{font-weight:700;text-shadow:1px 1px 3px rgba(0,0,0,.9);white-space:nowrap;}
+.c-pts{color:#ffd700;font-weight:700;}
+.m-lin{position:absolute;right:55px;top:0;bottom:0;width:4px;background:repeating-linear-gradient(180deg,#fff 0,#fff 7px,#222 7px,#222 14px);opacity:.7;}
+.ban-g{display:none;position:absolute;inset:0;background:rgba(0,0,0,.8);align-items:center;justify-content:center;flex-direction:column;gap:1rem;z-index:20;}
+.ban-g.vis{display:flex;}
+.g-em{font-size:clamp(3rem,10vw,5rem);animation:sal .6s ease-in-out infinite alternate;}
+@keyframes sal{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.g-tx{font-size:clamp(1.8rem,6vw,3rem);font-weight:900;color:#ffd700;text-align:center;}
+.conf{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.c-p{position:absolute;width:8px;height:8px;top:-20px;animation:cae linear forwards;}
+@keyframes cae{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+/* MANDO */
+#mando{display:none;flex-direction:column;height:100dvh;overflow:hidden;touch-action:none;}
+#mando.activa{display:flex;}
+.m-hdr{display:flex;align-items:center;justify-content:space-between;padding:.4rem .8rem;background:rgba(0,0,0,.5);flex-shrink:0;}
+.m-inf{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.9rem;}
+.m-dot{width:11px;height:11px;border-radius:50%;}
+.m-pts{font-size:1.7rem;font-weight:900;color:#ffd700;}
+.cv-wrap{flex:1;position:relative;touch-action:none;overflow:hidden;}
+canvas{display:block;width:100%;height:100%;touch-action:none;}
+.bon{position:absolute;font:bold 24px system-ui;pointer-events:none;animation:flt .9s ease-out forwards;transform:translateX(-50%);}
+@keyframes flt{0%{opacity:1;transform:translateX(-50%) scale(1.3)}100%{opacity:0;transform:translateX(-50%) translateY(-60px) scale(.7)}}
+.m-term{display:none;position:absolute;inset:0;background:rgba(0,0,0,.88);align-items:center;justify-content:center;flex-direction:column;gap:1rem;text-align:center;padding:2rem;}
+.m-term.vis{display:flex;}
+.esp-ov{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:.5rem;pointer-events:none;background:rgba(0,0,0,.35);}
+.esp-ov.vis{display:flex;}
+.esp-cir{width:55px;height:55px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd700;animation:gir .8s linear infinite;}
+.esp-txt{font-size:.85rem;color:rgba(255,255,255,.7);font-weight:600;}
+.t-bar-w{position:absolute;bottom:0;left:0;right:0;height:5px;background:rgba(255,255,255,.1);}
+.t-bar{height:100%;background:#ffd700;}
+</style>
+</head>
+<body>
+
+<!-- INICIO -->
+<div id="inicio" class="pantalla activa">
+  <div style="font-size:3rem">🐪</div>
+  <h1>Carrera de Camellos</h1>
+  <div style="display:flex;gap:.6rem;width:100%;max-width:300px">
+    <input class="input input-pin" id="codInput" placeholder="PIN" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')">
+    <button class="btn btn-p" onclick="irUnirse()" style="flex:1">Entrar</button>
+  </div>
+  <div id="msgErr" style="color:#e74c3c;font-size:.85rem;min-height:1.2em"></div>
+  <button class="btn btn-s" onclick="irAdmin()" style="font-size:.8rem;padding:.5rem 1.2rem;margin-top:.5rem">⚙️ Operario</button>
+</div>
+
+<!-- LOGIN ADMIN -->
+<div id="loginAdmin" class="pantalla">
+  <div style="font-size:2rem">🔐</div>
+  <h2>Acceso Operario</h2>
+  <input class="input" id="pinAdminInput" type="password" placeholder="Contraseña" maxlength="20" style="width:100%;max-width:280px">
+  <button class="btn btn-p" onclick="loginAdmin()" style="width:100%;max-width:280px">Entrar</button>
+  <div id="msgAdm" style="color:#e74c3c;font-size:.85rem;min-height:1.2em"></div>
+  <button class="btn btn-s" onclick="mostrar('inicio')" style="font-size:.8rem">Volver</button>
+</div>
+
+<!-- CREAR PIN ADMIN -->
+<div id="crearAdmin" class="pantalla">
+  <div style="font-size:2rem">🔐</div>
+  <h2>Crear contraseña de operario</h2>
+  <div class="sub">Primera vez — elige tu contraseña</div>
+  <input class="input" id="nPin1" type="password" placeholder="Contraseña" maxlength="20" style="width:100%;max-width:280px">
+  <input class="input" id="nPin2" type="password" placeholder="Repite contraseña" maxlength="20" style="width:100%;max-width:280px">
+  <button class="btn btn-p" onclick="guardarPin()" style="width:100%;max-width:280px">Guardar y entrar</button>
+  <div id="msgCr" style="color:#e74c3c;font-size:.85rem;min-height:1.2em"></div>
+</div>
+
+<!-- PANEL ADMIN -->
+<div id="panelAdmin" class="pantalla">
+  <div style="font-size:2rem">🎪</div>
+  <h2>Panel del Operario</h2>
+  <div class="cfg-grid" id="cfgGrid"></div>
+  <button class="btn btn-p" onclick="crearPartida()" style="width:100%;max-width:300px;margin-top:.5rem">🏁 Crear nueva partida</button>
+  <div id="msgPan" style="color:#e74c3c;font-size:.85rem;min-height:1.2em"></div>
+  <button class="btn btn-s" onclick="mostrar('inicio')" style="font-size:.8rem">Salir</button>
+</div>
+
+<!-- ESPERA ADMIN -->
+<div id="esperaAdmin" class="pantalla">
+  <h2>Partida lista</h2>
+  <div class="sub">Diles a los jugadores que entren con este PIN:</div>
+  <div class="cod-grande" id="pinShow"></div>
+  <div class="lista-j" id="listaEsp"></div>
+  <div id="txtEsp" class="sub">Esperando jugadores… (mín. 2)</div>
+  <button class="btn btn-p" id="btnIni" style="display:none;width:100%;max-width:280px" onclick="iniciarPartida()">🏁 ¡Empezar!</button>
+  <button class="btn btn-r" onclick="cancelarPartida()" style="font-size:.8rem;padding:.5rem 1.2rem">Cancelar</button>
+</div>
+
+<!-- TABLERO -->
+<div id="tablero">
+  <div class="t-top">
+    <div><div class="t-lbl">PIN</div><div class="t-cod" id="tPin"></div></div>
+    <div class="t-marc" id="tMarc"></div>
+    <div style="text-align:right"><div class="t-lbl">META</div><div class="t-cod" id="tMeta">30</div></div>
+  </div>
+  <div class="pistas" id="pistas">
+    <canvas id="bgCv" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <div class="m-lin"></div>
+    <div style="position:absolute;right:58px;top:4px;font-size:1rem">🏁</div>
+  </div>
+  <div class="ban-g" id="banG">
+    <div class="conf" id="conf"></div>
+    <div class="g-em" id="gEm"></div>
+    <div class="g-tx" id="gNom"></div>
+    <div style="color:rgba(255,255,255,.6)">¡Ganador!</div>
+    <button class="btn btn-p" onclick="volverPanel()">🔄 Nueva partida</button>
+    <button class="btn btn-s" onclick="mostrar('inicio')">Salir</button>
+  </div>
+</div>
+
+<!-- UNIRSE -->
+<div id="unirse" class="pantalla">
+  <div style="font-size:2.5rem">🐪</div>
+  <h2>Unirse a la partida</h2>
+  <div class="cod-grande" id="pinU" style="font-size:2rem"></div>
+  <input class="input" id="nomInput" placeholder="Tu nombre" maxlength="12" style="width:100%;max-width:280px">
+  <button class="btn btn-p" onclick="unirse()" style="width:100%;max-width:280px">¡Entrar!</button>
+  <button class="btn btn-s" onclick="mostrar('inicio')">Atrás</button>
+  <div id="msgUni" style="color:#e74c3c;font-size:.85rem;min-height:1.2em"></div>
+</div>
+
+<!-- ESPERANDO HOST -->
+<div id="espHost" class="pantalla">
+  <div class="spin"></div>
+  <div id="ehEm" style="font-size:3rem"></div>
+  <h2 id="ehNom"></h2>
+  <div class="sub">Esperando que el operario inicie…</div>
+</div>
+
+<!-- MANDO -->
+<div id="mando">
+  <div class="m-hdr">
+    <div class="m-inf">
+      <div class="m-dot" id="mDot"></div>
+      <span id="mNom"></span>
+    </div>
+    <div class="m-pts" id="mPts">0 pts</div>
+  </div>
+  <div class="cv-wrap" id="cvWrap">
+    <canvas id="mandoCv"></canvas>
+    <div class="esp-ov" id="espOv">
+      <div class="esp-cir"></div>
+      <div class="esp-txt" id="espTxt">Espera…</div>
+    </div>
+    <div class="t-bar-w"><div class="t-bar" id="tBar" style="width:0%"></div></div>
+    <div class="m-term" id="mTerm">
+      <div style="font-size:2.5rem" id="mtEm"></div>
+      <h2 id="mtTx"></h2>
+      <div class="sub">El operario puede iniciar una nueva partida</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== FIREBASE =====
+firebase.initializeApp({
+  apiKey:"AIzaSyDNqjVQ5rt8IdqvhuPr8CG46UGFYl73mOo",
+  authDomain:"camello-f1fd3.firebaseapp.com",
+  databaseURL:"https://camello-f1fd3-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"camello-f1fd3",
+  storageBucket:"camello-f1fd3.firebasestorage.app",
+  messagingSenderId:"764639015816",
+  appId:"1:764639015816:web:0b59af40b64f57aee0403d"
+});
+const db = firebase.database();
+
+const CAMELLOS=['🐪','🐫','🦒','🐎','🦓','🐐'];
+const COLORES=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+const CFG0={meta:30,bolas:3,espAzul:2,espRojo:2,espDor:3};
+
+let cfg={...CFG0};
+let miPin=null,miId=null,miIdx=null,miNom=null,esAdmin=false;
+let jugs={},partRef=null,jugRef=null;
+
+// Canvas
+let cv,ctx,cW,cH;
+let bola=null,drag=false,dStart=null,dActual=null,hist=[];
+let agujeros=[];
+let miPts=0,ocupada=false,enEsp=false,rafId=null;
+
+// ===== PANTALLAS =====
+function mostrar(id){
+  ['inicio','loginAdmin','crearAdmin','panelAdmin','esperaAdmin','tablero','unirse','espHost','mando'].forEach(d=>{
+    const e=document.getElementById(d);
+    e.classList.remove('activa');
+    if(d==='tablero'||d==='mando') e.style.display='none';
+  });
+  const e=document.getElementById(id);
+  if(id==='tablero'||id==='mando') e.style.display='flex';
+  else e.classList.add('activa');
+}
+
+function setErr(id,txt,dur=4000){
+  const e=document.getElementById(id);
+  if(!e) return;
+  e.textContent=txt;
+  if(txt) setTimeout(()=>{if(e)e.textContent='';},dur);
+}
+
+// ===== ADMIN =====
+async function irAdmin(){
+  const s=await db.ref('config/pinAdmin').once('value');
+  mostrar(s.exists()?'loginAdmin':'crearAdmin');
+}
+
+async function guardarPin(){
+  const p1=document.getElementById('nPin1').value.trim();
+  const p2=document.getElementById('nPin2').value.trim();
+  if(!p1){setErr('msgCr','Escribe una contraseña');return;}
+  if(p1!==p2){setErr('msgCr','Las contraseñas no coinciden');return;}
+  await db.ref('config/pinAdmin').set(btoa(p1));
+  esAdmin=true; await cargarCfg(); mostrar('panelAdmin');
+}
+
+async function loginAdmin(){
+  const p=document.getElementById('pinAdminInput').value.trim();
+  const s=await db.ref('config/pinAdmin').once('value');
+  if(!s.exists()||btoa(p)!==s.val()){setErr('msgAdm','Contraseña incorrecta');return;}
+  esAdmin=true; await cargarCfg(); mostrar('panelAdmin');
+}
+
+async function cargarCfg(){
+  const s=await db.ref('config/partida').once('value');
+  cfg=s.exists()?{...CFG0,...s.val()}:{...CFG0};
+  renderCfg();
+}
+
+function renderCfg(){
+  const items=[
+    {k:'meta',    l:'🎯 Puntos meta',      mn:10,  mx:3000,step:10},
+    {k:'bolas',   l:'🎱 Bolas por turno',  mn:1,   mx:10,  step:1},
+    {k:'espAzul', l:'🔵 Espera azul (s)',  mn:1,   mx:6,   step:1},
+    {k:'espRojo', l:'🔴 Espera rojo (s)',  mn:1,   mx:6,   step:1},
+    {k:'espDor',  l:'🟡 Espera dorado (s)',mn:1,   mx:6,   step:1},
+  ];
+  document.getElementById('cfgGrid').innerHTML=items.map(i=>`
+    <div class="cfg-item">
+      <div class="cfg-lbl">${i.l}</div>
+      <div class="cfg-row">
+        <button class="cfg-btn" onclick="chCfg('${i.k}',${-i.step},${i.mn},${i.mx})">−</button>
+        <div class="cfg-val" id="cv-${i.k}">${cfg[i.k]}</div>
+        <button class="cfg-btn" onclick="chCfg('${i.k}',${i.step},${i.mn},${i.mx})">+</button>
+      </div>
+    </div>`).join('');
+}
+
+function chCfg(k,d,mn,mx){
+  cfg[k]=Math.min(mx,Math.max(mn,cfg[k]+d));
+  document.getElementById('cv-'+k).textContent=cfg[k];
+}
+
+async function crearPartida(){
+  await db.ref('config/partida').set(cfg);
+  const pin=String(Math.floor(1000+Math.random()*9000));
+  miPin=pin;
+  partRef=db.ref('partidas/'+pin);
+  await partRef.set({estado:'espera',meta:cfg.meta,bolas:cfg.bolas,
+    espAzul:cfg.espAzul,espRojo:cfg.espRojo,espDor:cfg.espDor,creadoEn:Date.now()});
+  partRef.onDisconnect().remove();
+  document.getElementById('pinShow').textContent=pin;
+  jugs={};
+  mostrar('esperaAdmin');
+  partRef.child('jugadores').on('value',s=>{
+    jugs=s.val()||{};
+    renderEsp();
+  });
+  partRef.child('estado').on('value',s=>{
+    if(s.val()==='jugando'&&esAdmin){
+      mostrar('tablero');
+      document.getElementById('tPin').textContent=pin;
+      document.getElementById('tMeta').textContent=cfg.meta;
+      iniciarTablero();
+    }
+  });
+}
+
+function renderEsp(){
+  const arr=Object.values(jugs);
+  document.getElementById('listaEsp').innerHTML=arr.map(j=>`
+    <div class="item-j" style="border-left-color:${COLORES[j.indice]}">
+      <span style="font-size:1.3rem">${CAMELLOS[j.indice]}</span>
+      <span style="font-weight:600">${j.nombre}</span>
+      <span style="margin-left:auto;font-size:.72rem;color:#2ecc71">✓</span>
+    </div>`).join('');
+  const n=arr.length;
+  document.getElementById('txtEsp').textContent=n===0?'Esperando jugadores… (mín. 2)':`${n} jugador${n>1?'es':''} listo${n>1?'s':''}`;
+  document.getElementById('btnIni').style.display=n>=2?'block':'none';
+}
+
+async function iniciarPartida(){ await partRef.update({estado:'jugando'}); }
+
+async function cancelarPartida(){
+  if(partRef){await partRef.remove();partRef=null;}
+  mostrar('panelAdmin');
+}
+
+function volverPanel(){
+  if(partRef){partRef.off();partRef=null;}
+  mostrar('panelAdmin'); cargarCfg();
+}
+
+// ===== TABLERO =====
+function iniciarTablero(){
+  const pistas=document.getElementById('pistas');
+  Array.from(pistas.querySelectorAll('.c-div')).forEach(e=>e.remove());
+  document.getElementById('banG').classList.remove('vis');
+  const arr=Object.values(jugs),n=arr.length;
+  dibujarBg(n);
+  arr.forEach((j,i)=>{
+    const div=document.createElement('div');
+    div.className='c-div';
+    div.style.cssText=`top:${i*(100/n)}%;height:${100/n}%;`;
+    const fs=Math.min(Math.max((100/n)*.38,1),2.8);
+    div.innerHTML=`<div class="c-lin"></div>
+      <div class="c-mov" id="cm-${j.id}" style="left:55px">
+        <span style="font-size:${fs}rem;line-height:1">${CAMELLOS[j.indice]}</span>
+        <div>
+          <div class="c-nom" style="color:${COLORES[j.indice]};font-size:${Math.max(fs*.32,.6)}rem">${j.nombre}</div>
+          <div class="c-pts" id="cp-${j.id}" style="font-size:${Math.max(fs*.28,.52)}rem">0 pts</div>
+        </div>
+      </div>`;
+    pistas.appendChild(div);
+  });
+  partRef.child('jugadores').on('value',s=>{
+    const data=s.val()||{};
+    const ancho=pistas.offsetWidth-110;
+    document.getElementById('tMarc').innerHTML=Object.values(data).map(j=>
+      `<span class="bdg" style="border-left-color:${COLORES[j.indice]}">${CAMELLOS[j.indice]} ${j.nombre}: ${j.puntos||0}</span>`).join('');
+    Object.values(data).forEach(j=>{
+      const pct=Math.min((j.puntos||0)/cfg.meta,1);
+      const el=document.getElementById('cm-'+j.id);
+      const pe=document.getElementById('cp-'+j.id);
+      if(el) el.style.left=(55+pct*ancho*.9)+'px';
+      if(pe) pe.textContent=(j.puntos||0)+' pts';
+    });
+  });
+  partRef.child('ganador').on('value',s=>{
+    if(!s.val()) return;
+    const g=s.val();
+    document.getElementById('gEm').textContent=CAMELLOS[g.indice];
+    document.getElementById('gNom').textContent='¡'+g.nombre+'!';
+    document.getElementById('banG').classList.add('vis');
+    confetti();
+  });
+}
+
+function dibujarBg(n){
+  const cv2=document.getElementById('bgCv'),p=document.getElementById('pistas');
+  cv2.width=p.offsetWidth; cv2.height=p.offsetHeight;
+  const c=cv2.getContext('2d');
+  const g=c.createLinearGradient(0,0,0,cv2.height);
+  g.addColorStop(0,'#1a4a2e');g.addColorStop(.35,'#2d7a40');
+  g.addColorStop(.65,'#c09010');g.addColorStop(.75,'#7a5010');g.addColorStop(1,'#3a1a05');
+  c.fillStyle=g; c.fillRect(0,0,cv2.width,cv2.height);
+  for(let i=0;i<=n;i++){
+    c.strokeStyle='rgba(255,255,255,.1)';c.lineWidth=1;
+    c.beginPath();c.moveTo(0,Math.round(i*cv2.height/n));c.lineTo(cv2.width,Math.round(i*cv2.height/n));c.stroke();
+  }
+}
+
+function confetti(){
+  const cf=document.getElementById('conf'); cf.innerHTML='';
+  for(let i=0;i<80;i++) setTimeout(()=>{
+    const p=document.createElement('div');p.className='c-p';
+    p.style.left=Math.random()*100+'vw';
+    p.style.background=COLORES[Math.floor(Math.random()*6)];
+    p.style.borderRadius=Math.random()>.5?'50%':'2px';
+    p.style.animationDuration=(1.2+Math.random()*2)+'s';
+    cf.appendChild(p);setTimeout(()=>p.remove(),3500);
+  },i*25);
+}
+
+// ===== JUGADOR =====
+async function irUnirse(){
+  const pin=document.getElementById('codInput').value.trim();
+  if(pin.length<4){setErr('msgErr','Escribe el PIN');return;}
+  const s=await db.ref('partidas/'+pin).once('value');
+  if(!s.exists()){setErr('msgErr','PIN incorrecto o no hay partida');return;}
+  if(s.val().estado!=='espera'){setErr('msgErr','La partida ya ha empezado');return;}
+  miPin=pin;
+  document.getElementById('pinU').textContent=pin;
+  mostrar('unirse');
+  setTimeout(()=>document.getElementById('nomInput').focus(),100);
+}
+
+async function unirse(){
+  const nom=document.getElementById('nomInput').value.trim();
+  if(!nom){setErr('msgUni','Escribe tu nombre');return;}
+  miNom=nom;
+  partRef=db.ref('partidas/'+miPin);
+  const s=await partRef.once('value');
+  if(!s.exists()){setErr('msgUni','Partida no encontrada');return;}
+  const jj=s.val().jugadores||{};
+  const usados=Object.values(jj).map(j=>j.indice);
+  let idx=0; while(usados.includes(idx)&&idx<6) idx++;
+  if(idx>=6){setErr('msgUni','Sala llena');return;}
+  miIdx=idx;
+  miId='j_'+Date.now()+'_'+Math.random().toString(36).substr(2,4);
+  jugRef=partRef.child('jugadores/'+miId);
+  await jugRef.set({id:miId,nombre:nom,indice:idx,puntos:0});
+  jugRef.onDisconnect().remove();
+  // Leer config
+  const v=s.val();
+  cfg.meta=v.meta||30; cfg.bolas=v.bolas||3;
+  cfg.espAzul=v.espAzul||2; cfg.espRojo=v.espRojo||2; cfg.espDor=v.espDor||3;
+  document.getElementById('ehEm').textContent=CAMELLOS[idx];
+  document.getElementById('ehNom').textContent=nom;
+  mostrar('espHost');
+  partRef.child('estado').on('value',s2=>{
+    if(s2.val()==='jugando') iniciarMando();
+    if(!s2.exists()||s2.val()==='cancelada'){setErr('msgErr','Partida cancelada');mostrar('inicio');}
+  });
+}
+
+// ===== MANDO =====
+function iniciarMando(){
+  mostrar('mando');
+  document.getElementById('mTerm').classList.remove('vis');
+  document.getElementById('mDot').style.background=COLORES[miIdx];
+  document.getElementById('mNom').textContent=CAMELLOS[miIdx]+' '+miNom;
+  miPts=0;
+  cv=document.getElementById('mandoCv');
+  ctx=cv.getContext('2d');
+  redim();
+  window.addEventListener('resize',redim);
+  cv.addEventListener('touchstart',tS,{passive:false});
+  cv.addEventListener('touchmove', tM,{passive:false});
+  cv.addEventListener('touchend',  tE,{passive:false});
+  cv.addEventListener('mousedown', e=>tS({touches:[e],preventDefault:()=>e.preventDefault()}));
+  window.addEventListener('mousemove',e=>{if(drag)tM({touches:[e],preventDefault:()=>{}});});
+  window.addEventListener('mouseup',  e=>{if(drag)tE({changedTouches:[e],preventDefault:()=>{}});});
+  if(rafId) cancelAnimationFrame(rafId);
+  loop();
+  partRef.child('ganador').on('value',s=>{
+    if(!s.val()) return;
+    const g=s.val();
+    document.getElementById('mtEm').textContent=CAMELLOS[g.indice];
+    document.getElementById('mtTx').textContent=g.id===miId?'🏆 ¡Has ganado!':g.nombre+' ha ganado';
+    document.getElementById('mTerm').classList.add('vis');
+  });
+}
+
+function redim(){
+  if(!cv) return;
+  cW=cv.offsetWidth; cH=cv.offsetHeight;
+  cv.width=cW; cv.height=cH;
+  initAgujeros();
+  resetBola();
+}
+
+// ===== AGUJEROS — distribución geométrica sin solapamiento =====
+function initAgujeros(){
+  agujeros=[];
+  const wall=cW*0.07;
+  const aw=cW-wall*2; // ancho útil
+  // Radio proporcional para que quepan SIN solaparse
+  // Con 7 azules en fila: r_max = aw/14 aprox
+  const rAz = Math.min(aw*0.068, cH*0.058);  // azul grande
+  const rRo = Math.min(aw*0.052, cH*0.045);  // rojo medio
+  const rDo = Math.min(aw*0.038, cH*0.034);  // dorado pequeño
+
+  // Separación vertical entre filas
+  const yDo  = cH*0.14; // fila dorados (arriba)
+  const yRo1 = cH*0.26; // fila rojos 1
+  const yRo2 = cH*0.38; // fila rojos 2 (vértice V)
+  const yAz1 = cH*0.30; // azules laterales altos
+  const yAz2 = cH*0.48; // azules laterales medios
+  const yAz3 = cH*0.62; // azules bajos
+
+  // DORADOS x2 — arriba centro, simétricos
+  agujeros.push({x:cW/2-aw*0.18, y:yDo, r:rDo, pts:3, color:'#ffd700', aro:'#c8860a', esp:'espDor'});
+  agujeros.push({x:cW/2+aw*0.18, y:yDo, r:rDo, pts:3, color:'#ffd700', aro:'#c8860a', esp:'espDor'});
+
+  // ROJOS x5 — V interior, 2+2+1
+  agujeros.push({x:cW/2-aw*0.38, y:yRo1, r:rRo, pts:2, color:'#e74c3c', aro:'#a52020', esp:'espRojo'});
+  agujeros.push({x:cW/2+aw*0.38, y:yRo1, r:rRo, pts:2, color:'#e74c3c', aro:'#a52020', esp:'espRojo'});
+  agujeros.push({x:cW/2-aw*0.20, y:yRo1, r:rRo, pts:2, color:'#e74c3c', aro:'#a52020', esp:'espRojo'});
+  agujeros.push({x:cW/2+aw*0.20, y:yRo1, r:rRo, pts:2, color:'#e74c3c', aro:'#a52020', esp:'espRojo'});
+  agujeros.push({x:cW/2,         y:yRo2, r:rRo, pts:2, color:'#e74c3c', aro:'#a52020', esp:'espRojo'});
+
+  // AZULES x7 — laterales y abajo
+  agujeros.push({x:wall+rAz,     y:yAz1, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+  agujeros.push({x:cW-wall-rAz,  y:yAz1, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+  agujeros.push({x:wall+rAz,     y:yAz2, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+  agujeros.push({x:cW-wall-rAz,  y:yAz2, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+  agujeros.push({x:wall+rAz,     y:yAz3, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+  agujeros.push({x:cW-wall-rAz,  y:yAz3, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+  agujeros.push({x:cW/2,         y:yAz3, r:rAz, pts:1, color:'#42a5f5', aro:'#1565c0', esp:'espAzul'});
+}
+
+function resetBola(){
+  const r=Math.min(cW,cH)*0.038;
+  bola={x:cW/2, y:cH-r-22, r, vx:0, vy:0, mov:false};
+  hist=[]; drag=false; dStart=null; dActual=null;
+  ocupada=false; enEsp=false;
+  document.getElementById('espOv').classList.remove('vis');
+}
+
+function pPos(e){
+  const rect=cv.getBoundingClientRect();
+  const src=e.touches?e.touches[0]:e;
+  return {x:(src.clientX-rect.left)*(cW/rect.width),y:(src.clientY-rect.top)*(cH/rect.height)};
+}
+
+function tS(e){
+  e.preventDefault();
+  if(bola.mov||ocupada||enEsp) return;
+  const p=pPos(e);
+  if(Math.hypot(p.x-bola.x,p.y-bola.y)<bola.r*3.5){
+    drag=true; dStart={x:p.x,y:p.y}; dActual={x:p.x,y:p.y};
+    bola.x=p.x; bola.y=p.y;
+  }
+}
+function tM(e){
+  e.preventDefault();
+  if(!drag) return;
+  const p=pPos(e); dActual=p;
+  const w=cW*0.07;
+  bola.x=Math.max(w+bola.r,Math.min(cW-w-bola.r,p.x));
+  bola.y=Math.max(bola.r,Math.min(cH-bola.r-22,p.y));
+}
+function tE(e){
+  e.preventDefault();
+  if(!drag) return;
+  drag=false;
+  bola.vx=(dActual.x-dStart.x)*0.30;
+  bola.vy=(dActual.y-dStart.y)*0.30;
+  bola.mov=true;
+}
+
+const GRAV=0.22,FRIC=0.991,REB=0.50;
+
+function tick(){
+  if(!bola||!bola.mov||ocupada||enEsp) return;
+  bola.vy+=GRAV; bola.vx*=FRIC; bola.vy*=FRIC;
+  bola.x+=bola.vx; bola.y+=bola.vy;
+  const w=cW*0.07;
+  if(bola.x-bola.r<w)     {bola.x=w+bola.r;    bola.vx= Math.abs(bola.vx)*REB;}
+  if(bola.x+bola.r>cW-w)  {bola.x=cW-w-bola.r; bola.vx=-Math.abs(bola.vx)*REB;}
+  if(bola.y-bola.r<0)     {bola.y=bola.r;       bola.vy= Math.abs(bola.vy)*REB;}
+  if(bola.y>cH+60)        {resetBola(); return;}
+  hist.push({x:bola.x,y:bola.y});
+  if(hist.length>16) hist.shift();
+  for(const a of agujeros){
+    if(Math.hypot(bola.x-a.x,bola.y-a.y)<a.r*0.80){
+      // Si va muy rápido pasa por encima
+      if(Math.hypot(bola.vx,bola.vy)>14) continue;
+      entrar(a); return;
+    }
+  }
+}
+
+function entrar(a){
+  ocupada=true;
+  bola.mov=false; bola.vx=0; bola.vy=0; bola.x=a.x; bola.y=a.y;
+  miPts+=a.pts;
+  document.getElementById('mPts').textContent=miPts+' pts';
+  jugRef.child('puntos').transaction(c=>(c||0)+a.pts);
+  showBonus('+'+a.pts, a.x, a.y-a.r-8, a.color);
+  if(miPts>=cfg.meta){
+    partRef.child('ganador').once('value',s=>{
+      if(!s.val()) partRef.child('ganador').set({id:miId,nombre:miNom,indice:miIdx});
+    });
+  }
+  iniciarEsp(cfg[a.esp]||2);
+}
+
+function iniciarEsp(seg){
+  enEsp=true;
+  document.getElementById('espOv').classList.add('vis');
+  document.getElementById('espTxt').textContent='Nueva bola en '+seg+'s';
+  const bar=document.getElementById('tBar');
+  bar.style.transition='none'; bar.style.width='100%';
+  setTimeout(()=>{bar.style.transition=`width ${seg}s linear`;bar.style.width='0%';},30);
+  setTimeout(()=>{
+    enEsp=false; ocupada=false;
+    document.getElementById('espOv').classList.remove('vis');
+    bar.style.width='0%';
+    resetBola();
+  },seg*1000);
+}
+
+function showBonus(txt,x,y,col){
+  const w=document.getElementById('cvWrap');
+  const e=document.createElement('div'); e.className='bon';
+  e.textContent=txt; e.style.color=col;
+  e.style.left=(x/cW*100)+'%'; e.style.top=(y/cH*100)+'%';
+  w.appendChild(e); setTimeout(()=>e.remove(),950);
+}
+
+// ===== DIBUJO =====
+function loop(){rafId=requestAnimationFrame(loop);tick();dibujar();}
+
+function dibujar(){
+  if(!ctx) return;
+  ctx.clearRect(0,0,cW,cH);
+  // Suelo madera con degradado de profundidad
+  const gm=ctx.createLinearGradient(0,0,0,cH);
+  gm.addColorStop(0,'#28150c'); gm.addColorStop(0.5,'#452514'); gm.addColorStop(1,'#5c321b');
+  ctx.fillStyle=gm; ctx.fillRect(0,0,cW,cH);
+  // Tablas verticales
+  const nT=7,tw=cW/nT;
+  for(let i=0;i<nT;i++){
+    ctx.fillStyle=i%2===0?'rgba(0,0,0,0.10)':'rgba(255,255,255,0.04)';
+    ctx.fillRect(i*tw,0,tw,cH);
+  }
+  ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1.5;
+  for(let i=1;i<nT;i++){ctx.beginPath();ctx.moveTo(i*tw,0);ctx.lineTo(i*tw,cH);ctx.stroke();}
+  // V stripes — vértice abajo, abren hacia arriba
+  const cx_=cW/2, apex=cH-22;
+  [[cW*0.46,'#0097a7',0.30,cW*0.09],[cW*0.30,'#e65100',0.28,cW*0.07],[cW*0.18,'#f9a825',0.25,cW*0.055]].forEach(([xT,col,al,gro])=>{
+    ctx.save(); ctx.globalAlpha=al; ctx.strokeStyle=col; ctx.lineWidth=gro; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(cx_-xT,cH*0.02); ctx.lineTo(cx_,apex); ctx.lineTo(cx_+xT,cH*0.02);
+    ctx.stroke(); ctx.restore();
+  });
+  // Paredes
+  const w=cW*0.07;
+  const gl=ctx.createLinearGradient(0,0,w,0);
+  gl.addColorStop(0,'rgba(0,0,0,0.55)'); gl.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=gl; ctx.fillRect(0,0,w,cH);
+  const gr2=ctx.createLinearGradient(cW-w,0,cW,0);
+  gr2.addColorStop(0,'rgba(0,0,0,0)'); gr2.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=gr2; ctx.fillRect(cW-w,0,w,cH);
+  ctx.strokeStyle='rgba(180,140,80,0.28)'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(w,0);ctx.lineTo(w,cH);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cW-w,0);ctx.lineTo(cW-w,cH);ctx.stroke();
+  // Agujeros
+  agujeros.forEach(a=>{
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=10; ctx.shadowOffsetY=5;
+    ctx.beginPath(); ctx.arc(a.x,a.y,a.r+5,0,Math.PI*2);
+    ctx.fillStyle='#cca43b'; ctx.fill();
+    ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+    const gf=ctx.createRadialGradient(a.x-a.r*.2,a.y-a.r*.2,a.r*.05,a.x,a.y,a.r);
+    gf.addColorStop(0,'#1c1c1c'); gf.addColorStop(0.6,'#0a0a0a'); gf.addColorStop(1,'#000');
+    ctx.beginPath(); ctx.arc(a.x,a.y,a.r,0,Math.PI*2);
+    ctx.fillStyle=gf; ctx.fill();
+    ctx.beginPath(); ctx.arc(a.x,a.y,a.r-2,0,Math.PI*2);
+    ctx.strokeStyle=a.color; ctx.lineWidth=3; ctx.stroke();
+    ctx.restore();
+    // Etiqueta puntos
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.font=`bold ${Math.max(cW*0.032,10)}px system-ui`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('+'+a.pts, a.x, a.y-a.r-13);
+  });
+  // Estela
+  if(bola&&bola.mov) hist.forEach((p,i)=>{
+    const t=i/hist.length;
+    ctx.beginPath(); ctx.arc(p.x,p.y,bola.r*t*0.6,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${t*0.14})`; ctx.fill();
+  });
+  // Guía
+  if(drag&&dStart&&dActual){
+    const dx=dActual.x-dStart.x,dy=dActual.y-dStart.y;
+    let px=bola.x,py=bola.y,pvx=dx*.30,pvy=dy*.30,pw=cW*0.07;
+    ctx.setLineDash([4,6]); ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(px,py);
+    for(let i=0;i<30;i++){
+      pvy+=GRAV;pvx*=FRIC;pvy*=FRIC;px+=pvx;py+=pvy;
+      if(px<pw+bola.r){px=pw+bola.r;pvx=Math.abs(pvx)*REB;}
+      if(px>cW-pw-bola.r){px=cW-pw-bola.r;pvx=-Math.abs(pvx)*REB;}
+      ctx.lineTo(px,py); if(py>cH) break;
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    const mag=Math.hypot(dx,dy);
+    if(mag>8){
+      const f=Math.min(mag/130,1);
+      ctx.strokeStyle=`rgba(255,${Math.round(220*(1-f))},50,0.8)`; ctx.lineWidth=4;
+      ctx.beginPath();ctx.moveTo(bola.x,bola.y);ctx.lineTo(bola.x+dx*.55,bola.y+dy*.55);ctx.stroke();
+    }
+  }
+  // Bola
+  if(bola&&!ocupada){
+    ctx.beginPath();ctx.arc(bola.x+2,bola.y+3,bola.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fill();
+    const gb=ctx.createRadialGradient(bola.x-bola.r*.32,bola.y-bola.r*.35,bola.r*.05,bola.x,bola.y,bola.r);
+    gb.addColorStop(0,'#fff');gb.addColorStop(0.3,'#f0f0f0');gb.addColorStop(0.75,'#bbb');gb.addColorStop(1,'#888');
+    ctx.beginPath();ctx.arc(bola.x,bola.y,bola.r,0,Math.PI*2);
+    ctx.fillStyle=gb;ctx.fill();
+    ctx.beginPath();ctx.arc(bola.x-bola.r*.28,bola.y-bola.r*.3,bola.r*.28,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.fill();
+  }
+  // Zona lanzar
+  ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.fillRect(0,cH-24,cW,24);
+  ctx.strokeStyle='rgba(255,200,80,0.22)'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,cH-24);ctx.lineTo(cW,cH-24);ctx.stroke();
+  ctx.fillStyle='rgba(255,200,80,0.45)'; ctx.font=`bold ${Math.max(Math.round(cW*0.036),11)}px system-ui`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('▲  desliza la bola  ▲',cW/2,cH-12);
+}
+</script>
+</body>
+</html>
